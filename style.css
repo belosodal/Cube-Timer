@@ -69,7 +69,7 @@ button{font-family:inherit;}
 }
 
 .scramble-box{
-  max-width:640px;
+  max-width:min(95vw, 1000px);;
   padding:0 10px;
 }
 .scramble-label{
