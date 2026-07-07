@@ -68,6 +68,25 @@ button{font-family:inherit;}
   position:relative;
 }
 
+.scramble-box{
+  max-width:640px;
+  padding:0 10px;
+}
+.scramble-label{
+  font-size:10px;
+  letter-spacing:.18em;
+  color:var(--text-faint);
+  margin-bottom:6px;
+}
+.scramble-text{
+  font-size:clamp(14px, 1.9vw, 19px);
+  font-weight:600;
+  letter-spacing:.03em;
+  color:var(--text-dim);
+  line-height:1.5;
+  word-spacing:.15em;
+}
+
 .display{
   font-weight:800;
   font-size:clamp(64px, 9vw, 118px);

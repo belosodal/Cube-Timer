@@ -37,6 +37,8 @@
   var statMean = document.getElementById("statMean");
   var clearBtn = document.getElementById("clearBtn");
 
+  var scrambleTextEl = document.getElementById("scrambleText");
+
   var settingsBtn = document.getElementById("settingsBtn");
   var modalBackdrop = document.getElementById("modalBackdrop");
   var closeModal = document.getElementById("closeModal");
@@ -59,6 +61,41 @@
     if (code.indexOf("Key")===0) return code.slice(3);
     if (code.indexOf("Digit")===0) return code.slice(5);
     return code;
+  }
+
+  // ---------- scramble generator (3x3, WCA-notation random-move) ----------
+  // Note: TNoodle's real scrambler is a Java desktop tool and can't run
+  // inside a static web page, so this generates scrambles client-side in
+  // the browser using the same move notation (U D L R F B, with ' and 2
+  // modifiers). It avoids repeating a face and avoids more than two
+  // consecutive moves on the same axis, matching standard scramble rules.
+  var SCRAMBLE_LEN = 20;
+  var FACES = ["U", "D", "L", "R", "F", "B"];
+  var AXIS = { U: 0, D: 0, L: 1, R: 1, F: 2, B: 2 };
+  var MODS = ["", "'", "2"];
+
+  function generateScramble(length){
+    length = length || SCRAMBLE_LEN;
+    var moves = [];
+    var lastFace = null, lastAxis = null, axisStreak = 0;
+    for (var i = 0; i < length; i++){
+      var candidates = FACES.filter(function(f){
+        if (f === lastFace) return false;
+        if (AXIS[f] === lastAxis && axisStreak >= 2) return false;
+        return true;
+      });
+      var face = candidates[Math.floor(Math.random() * candidates.length)];
+      var mod = MODS[Math.floor(Math.random() * MODS.length)];
+      moves.push(face + mod);
+      axisStreak = (AXIS[face] === lastAxis) ? axisStreak + 1 : 1;
+      lastAxis = AXIS[face];
+      lastFace = face;
+    }
+    return moves.join(" ");
+  }
+
+  function newScramble(){
+    scrambleTextEl.textContent = generateScramble();
   }
 
   // ---------- formatting ----------
@@ -127,6 +164,7 @@
       solves.push({id: ++solveIdCounter, ms:0, penalty:null, dnf:true});
       renderSolves();
       setDisplayClass("state-dnf");
+      newScramble();
       goIdle('inspection timed out — logged as <span class="tag">DNF</span>. press SPACE to try again');
     }
   }
@@ -181,6 +219,7 @@
     renderSolves();
     setDisplayClass(dnf ? "state-dnf" : "state-idle");
     var resultText = dnf ? "DNF" : formatMs(finalMs) + (penalty ? " (+2)" : "");
+    newScramble();
     goIdle('logged <span class="tag">' + resultText + '</span> — press SPACE to start inspection');
   }
 
@@ -370,5 +409,6 @@
 
   // ---------- init ----------
   renderSolves();
+  newScramble();
   goIdle();
 })();
