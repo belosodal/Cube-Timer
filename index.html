@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>cube timer ni dal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="frame">
+  <div class="topbar">
+    <span>cube timer ni dal</span>
+    <span style="display:flex;align-items:center;gap:10px;">
+      hehe :P
+      <button class="settings-btn" id="settingsBtn" title="Settings" aria-label="Settings">&#9881;</button>
+    </span>
+  </div>
+
+  <div class="stage">
+    <div class="display state-idle" id="display">0.00</div>
+    <div class="hint" id="hint">press <span class="tag">SPACE</span> to start inspection</div>
+
+    <div class="panel" id="panel">
+      <div class="panel-toggle-row">
+        <button class="toggle-link" id="toggleLink">hide</button>
+      </div>
+      <div class="panel-body" id="panelBody">
+        <div class="avg-line" id="avgLine">AVERAGE OF 5: –</div>
+        <div id="solveRows">
+          <div class="solve-row"><span class="idx">no solves yet</span></div>
+        </div>
+        <div class="extra-stats">
+          <span>best: <b id="statBest">–</b></span>
+          <span>ao12: <b id="statAo12">–</b></span>
+          <span>mean: <b id="statMean">–</b></span>
+        </div>
+        <button class="clear-link" id="clearBtn">clear session</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal">
+    <h2>SETTINGS</h2>
+    <div class="setting-row">
+      <label>Pad L key</label>
+      <button class="rebind-btn" id="rebindL">Shift L</button>
+    </div>
+    <div class="setting-row">
+      <label>Pad R key</label>
+      <button class="rebind-btn" id="rebindR">Shift R</button>
+    </div>
+    <div class="setting-row">
+      <label>Inspection time</label>
+      <div class="stepper">
+        <button id="inspMinus">–</button>
+        <span id="inspVal">15s</span>
+        <button id="inspPlus">+</button>
+      </div>
+    </div>
+    <!-- <p class="modal-note">Hold both pad keys, then release either one to start the solve — no minimum hold time. Space starts inspection / stops the solve. Click a rebind button, then press the new key.</p> -->
+    <button class="close-btn" id="closeModal">Done</button>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
