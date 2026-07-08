@@ -10,6 +10,11 @@
   var PENALTY_WINDOW_MS = 2000; // +2 penalty zone after inspection ends
   var DNF_AFTER_MS = 4000;      // grace after inspection ends before auto-DNF
 
+  // Extra keys that can stop a running solve besides Space — these sit
+  // right around the space bar (B/N/M) so a stray finger still lands a
+  // stop even if it misses the space bar itself. Only active while SOLVING.
+  var EXTRA_STOP_KEYS = ["KeyB", "KeyN", "KeyM"];
+
   // ---------- state ----------
   var STATE = { IDLE:"idle", INSPECTION:"inspection", ARMED:"armed", SOLVING:"solving" };
   var state = STATE.IDLE;
@@ -104,6 +109,12 @@
   var scrambleModalText = document.getElementById("scrambleModalText");
   var scrambleModalClose = document.getElementById("scrambleModalClose");
 
+  var padLBtn = document.getElementById("padLBtn");
+  var padRBtn = document.getElementById("padRBtn");
+  var padLBtnKey = document.getElementById("padLBtnKey");
+  var padRBtnKey = document.getElementById("padRBtnKey");
+  var spaceBtn = document.getElementById("spaceBtn");
+
   // ---------- key label helper ----------
   function keyLabel(code){
     var map = {
@@ -117,6 +128,11 @@
     if (code.indexOf("Key")===0) return code.slice(3);
     if (code.indexOf("Digit")===0) return code.slice(5);
     return code;
+  }
+
+  function refreshPadButtonLabels(){
+    padLBtnKey.textContent = keyLabel(config.padL);
+    padRBtnKey.textContent = keyLabel(config.padR);
   }
 
   // ---------- scramble generator (3x3, WCA-notation random-move) ----------
@@ -174,6 +190,21 @@
   function setDisplayClass(cls){
     displayEl.className = "display " + cls;
   }
+  function updateSpaceBtn(){
+    spaceBtn.className = "space-btn";
+    if (state === STATE.SOLVING){
+      spaceBtn.textContent = "STOP";
+      spaceBtn.classList.add("state-solving");
+    } else if (state === STATE.ARMED){
+      spaceBtn.textContent = "CANCEL";
+      spaceBtn.classList.add("state-armed");
+    } else if (state === STATE.INSPECTION){
+      spaceBtn.textContent = "CANCEL";
+      spaceBtn.classList.add("state-inspection");
+    } else {
+      spaceBtn.textContent = "TAP TO START";
+    }
+  }
 
   // ---------- reset to idle ----------
   function goIdle(msg){
@@ -190,6 +221,7 @@
       displayEl.textContent = "0.00";
     }
     hintEl.innerHTML = msg || 'press <span class="tag">SPACE</span> to start inspection';
+    updateSpaceBtn();
   }
 
   // ---------- inspection ----------
@@ -201,6 +233,7 @@
     updateInspection();
     inspectionInterval = setInterval(updateInspection, 50);
     hintEl.innerHTML = 'hold <span class="tag">' + keyLabel(config.padL) + '</span> + <span class="tag">' + keyLabel(config.padR) + '</span>, then release to start';
+    updateSpaceBtn();
   }
 
   function updateInspection(){
@@ -233,6 +266,7 @@
       state = STATE.ARMED;
       setDisplayClass("state-armed");
       hintEl.innerHTML = 'release to <span class="tag">start</span>';
+      updateSpaceBtn();
     }
   }
   function breakArm(){
@@ -244,6 +278,7 @@
     if (state === STATE.INSPECTION){
       // was never fully armed (only one key was held) — stay in inspection
       hintEl.innerHTML = 'hold <span class="tag">' + keyLabel(config.padL) + '</span> + <span class="tag">' + keyLabel(config.padR) + '</span>, then release to start';
+      updateSpaceBtn();
     }
   }
 
@@ -258,7 +293,8 @@
     window.__forceDnf = wasDnfZone;
     window.__penalty = appliedPenalty;
     setDisplayClass("state-solving");
-    hintEl.innerHTML = 'press <span class="tag">SPACE</span> to stop';
+    hintEl.innerHTML = 'press <span class="tag">SPACE</span> (or B / N / M) to stop';
+    updateSpaceBtn();
     tickSolve();
   }
   function tickSolve(){
@@ -298,6 +334,7 @@
     if (rebindTarget){
       if (e.code === "Escape"){ cancelRebind(); return; }
       if (e.code === "Space") return;
+      if (EXTRA_STOP_KEYS.indexOf(e.code) !== -1) return; // reserved for stopping
       var other = rebindTarget === "L" ? config.padR : config.padL;
       if (e.code === other) return;
       if (rebindTarget === "L") config.padL = e.code; else config.padR = e.code;
@@ -309,6 +346,12 @@
     if (e.code === "Space"){
       e.preventDefault();
       if (!e.repeat) onSpace();
+      return;
+    }
+
+    if (state === STATE.SOLVING && EXTRA_STOP_KEYS.indexOf(e.code) !== -1){
+      e.preventDefault();
+      if (!e.repeat) stopSolve();
       return;
     }
 
@@ -326,6 +369,34 @@
       breakArm();
     }
   });
+
+  // ---------- on-screen touch controls (mobile/no-keyboard support) ----------
+  // Pointer events unify mouse + touch/stylus in one listener set, so the
+  // same pads work whether someone taps on a phone or clicks with a mouse.
+  // touch-action:none in CSS stops the browser from trying to scroll/zoom
+  // while a pad is held down.
+  function bindPadPointer(el, getCode){
+    function down(e){
+      e.preventDefault();
+      try{ el.setPointerCapture(e.pointerId); }catch(err){}
+      heldKeys.add(getCode());
+      el.classList.add("active");
+      checkArm();
+    }
+    function up(e){
+      heldKeys.delete(getCode());
+      el.classList.remove("active");
+      breakArm();
+    }
+    el.addEventListener("pointerdown", down);
+    el.addEventListener("pointerup", up);
+    el.addEventListener("pointercancel", up);
+    el.addEventListener("pointerleave", up);
+  }
+  bindPadPointer(padLBtn, function(){ return config.padL; });
+  bindPadPointer(padRBtn, function(){ return config.padR; });
+
+  spaceBtn.addEventListener("click", function(){ onSpace(); });
 
   // ---------- stats ----------
   function validTimes(){
@@ -453,6 +524,7 @@
     rebindL.classList.remove("listening");
     rebindR.classList.remove("listening");
     rebindTarget = null;
+    refreshPadButtonLabels();
     saveState();
   }
   function cancelRebind(){
@@ -497,6 +569,7 @@
   rebindL.textContent = keyLabel(config.padL);
   rebindR.textContent = keyLabel(config.padR);
   inspVal.textContent = config.inspectionSeconds + "s";
+  refreshPadButtonLabels();
 
   renderSolves();
 
