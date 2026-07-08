@@ -255,7 +255,7 @@
       renderSolves();
       setDisplayClass("state-dnf");
       newScramble();
-      goIdle('inspection timed out — logged as <span class="tag">DNF</span>. press SPACE to try again');
+      goIdle('inspection timed out — press SPACE to try again');
     }
   }
 
@@ -293,7 +293,7 @@
     window.__forceDnf = wasDnfZone;
     window.__penalty = appliedPenalty;
     setDisplayClass("state-solving");
-    hintEl.innerHTML = 'press <span class="tag">SPACE</span> (or B / N / M) to stop';
+    // hintEl.innerHTML = 'press <span class="tag">SPACE</span> (or B / N / M) to stop';
     updateSpaceBtn();
     tickSolve();
   }
@@ -313,7 +313,7 @@
     setDisplayClass(dnf ? "state-dnf" : "state-idle");
     var resultText = dnf ? "DNF" : formatMs(finalMs) + (penalty ? " (+2)" : "");
     newScramble();
-    goIdle('logged <span class="tag">' + resultText + '</span> — press SPACE to start inspection');
+    goIdle('</span> — press SPACE to start inspection');
   }
 
   // ---------- space handling ----------
