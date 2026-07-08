@@ -97,6 +97,25 @@ button{font-family:inherit;}
   line-height:1.5;
   word-spacing:.15em;
 }
+.scramble-back-btn{
+  display:block;
+  margin:8px auto 0;
+  background:none;
+  border:none;
+  color:var(--text-faint);
+  font-size:11px;
+  letter-spacing:.03em;
+  text-decoration:underline;
+  text-underline-offset:2px;
+  cursor:pointer;
+  padding:0;
+}
+.scramble-back-btn:hover:not(:disabled){color:var(--text-dim);}
+.scramble-back-btn:disabled{
+  opacity:.3;
+  cursor:default;
+  text-decoration:none;
+}
 
 .display{
   font-weight:800;
@@ -187,7 +206,7 @@ button{font-family:inherit;}
   font-size:12.5px;
   letter-spacing:.1em;
   cursor:pointer;
-  touch-action:manipulation;
+  touch-action:none;
   -webkit-tap-highlight-color:transparent;
   transition:background .1s, border-color .1s, color .1s;
 }
@@ -385,6 +404,7 @@ button{font-family:inherit;}
   .display{font-size:clamp(48px, 17vw, 88px);}
   .scramble-box{max-width:100%;}
   .scramble-text{font-size:clamp(12.5px, 3.6vw, 15px);}
+  .pads-row, .pads-toggle-row{display:none;}
   .pad-btn{min-height:68px;padding:16px 8px;}
   .pad-btn-key{font-size:14.5px;}
   .space-btn{padding:16px;font-size:13.5px;}

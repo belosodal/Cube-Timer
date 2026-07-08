@@ -29,6 +29,10 @@
   var panelCollapsed = false;
   var padsHidden = false;
 
+  // stack of past scrambles so the "previous scramble" button can step back
+  var scrambleHistory = [];
+  var SCRAMBLE_HISTORY_LIMIT = 30;
+
   // ---------- sessions ----------
   // Each session keeps its own solve log + id counter, so switching
   // sessions never mixes solves together. `solves` / `solveIdCounter`
@@ -72,7 +76,8 @@
         activeSessionId: activeSessionId,
         panelCollapsed: panelCollapsed,
         padsHidden: padsHidden,
-        scramble: scrambleTextEl ? scrambleTextEl.textContent : null
+        scramble: scrambleTextEl ? scrambleTextEl.textContent : null,
+        scrambleHistory: scrambleHistory
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     }catch(err){
@@ -115,6 +120,7 @@
       solves = getActiveSession().solves;
       panelCollapsed = !!data.panelCollapsed;
       padsHidden = !!data.padsHidden;
+      scrambleHistory = Array.isArray(data.scrambleHistory) ? data.scrambleHistory : [];
       return data;
     }catch(err){
       return null;
@@ -169,6 +175,7 @@
   var clearBtn = document.getElementById("clearBtn");
 
   var scrambleTextEl = document.getElementById("scrambleText");
+  var prevScrambleBtn = document.getElementById("prevScrambleBtn");
 
   var settingsBtn = document.getElementById("settingsBtn");
   var modalBackdrop = document.getElementById("modalBackdrop");
@@ -247,7 +254,28 @@
   }
 
   function newScramble(){
+    var current = scrambleTextEl.textContent;
+    if (current && current !== "generating…"){
+      scrambleHistory.push(current);
+      if (scrambleHistory.length > SCRAMBLE_HISTORY_LIMIT) scrambleHistory.shift();
+    }
     scrambleTextEl.textContent = generateScramble();
+    updatePrevScrambleBtn();
+    saveState();
+  }
+
+  function updatePrevScrambleBtn(){
+    if (!prevScrambleBtn) return;
+    prevScrambleBtn.disabled = !scrambleHistory.length;
+  }
+
+  // steps back to the scramble that was showing before the current one —
+  // only while idle, so it can't be used to swap the scramble mid-solve
+  function goToPreviousScramble(){
+    if (!scrambleHistory.length) return;
+    if (state !== STATE.IDLE) return;
+    scrambleTextEl.textContent = scrambleHistory.pop();
+    updatePrevScrambleBtn();
     saveState();
   }
 
@@ -270,19 +298,25 @@
   function setDisplayClass(cls){
     displayEl.className = "display " + cls;
   }
+  // mobile uses a press-and-hold gesture on the space button instead of the
+  // two-hand pad-hold mechanic, so its labels/behavior branch on viewport
+  var mobileMQ = window.matchMedia("(max-width:768px)");
+  function isMobileMode(){ return mobileMQ.matches; }
+
   function updateSpaceBtn(){
     spaceBtn.className = "space-btn";
+    var mobile = isMobileMode();
     if (state === STATE.SOLVING){
-      spaceBtn.textContent = "STOP";
+      spaceBtn.textContent = mobile ? "TAP TO STOP" : "STOP";
       spaceBtn.classList.add("state-solving");
     } else if (state === STATE.ARMED){
-      spaceBtn.textContent = "CANCEL";
+      spaceBtn.textContent = mobile ? "RELEASE TO START" : "CANCEL";
       spaceBtn.classList.add("state-armed");
     } else if (state === STATE.INSPECTION){
-      spaceBtn.textContent = "CANCEL";
+      spaceBtn.textContent = mobile ? "KEEP HOLDING…" : "CANCEL";
       spaceBtn.classList.add("state-inspection");
     } else {
-      spaceBtn.textContent = "TAP TO START";
+      spaceBtn.textContent = mobile ? "HOLD TO START" : "TAP TO START";
     }
   }
 
@@ -477,7 +511,35 @@
   bindPadPointer(padLBtn, function(){ return config.padL; });
   bindPadPointer(padRBtn, function(){ return config.padR; });
 
-  spaceBtn.addEventListener("click", function(){ onSpace(); });
+  // desktop keeps the original tap-to-toggle behavior; mobile gets a
+  // press-and-hold gesture instead (press starts inspection and arms
+  // immediately, release starts the solve, a tap while solving stops it)
+  function spacePointerDown(e){
+    if (!isMobileMode()){
+      onSpace();
+      return;
+    }
+    e.preventDefault();
+    if (state === STATE.IDLE){
+      startInspection();
+      heldKeys.add(config.padL);
+      heldKeys.add(config.padR);
+      checkArm();
+    } else if (state === STATE.SOLVING){
+      stopSolve();
+    }
+  }
+  function spacePointerUp(e){
+    if (!isMobileMode()) return;
+    if (state === STATE.ARMED || state === STATE.INSPECTION){
+      heldKeys.delete(config.padL);
+      heldKeys.delete(config.padR);
+      breakArm();
+    }
+  }
+  spaceBtn.addEventListener("pointerdown", spacePointerDown);
+  spaceBtn.addEventListener("pointerup", spacePointerUp);
+  spaceBtn.addEventListener("pointercancel", spacePointerUp);
 
   // ---------- stats ----------
   function validTimes(){
@@ -562,6 +624,8 @@
   function closeScrambleModal(){
     scrambleModalBackdrop.classList.remove("open");
   }
+  prevScrambleBtn.addEventListener("click", goToPreviousScramble);
+
   scrambleModalClose.addEventListener("click", closeScrambleModal);
   scrambleModalBackdrop.addEventListener("click", function(e){
     if (e.target === scrambleModalBackdrop) closeScrambleModal();
@@ -755,6 +819,7 @@
   } else {
     newScramble();
   }
+  updatePrevScrambleBtn();
 
   if (saved && saved.panelCollapsed){
     setPanelCollapsed(true);
