@@ -51,7 +51,7 @@ button{font-family:inherit;}
 }
 .topbar .settings-btn{
   background:none;border:none;color:var(--text-faint);
-  font-size:25px;cursor:pointer;opacity:.55;padding:2px 4px;
+  font-size:20px;cursor:pointer;opacity:.55;padding:2px 4px;
   transition:opacity .15s, color .15s;
 }
 .topbar .settings-btn:hover{opacity:1;color:var(--text-dim);}
