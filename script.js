@@ -234,6 +234,7 @@
     inspectionInterval = setInterval(updateInspection, 50);
     hintEl.innerHTML = 'hold <span class="tag">' + keyLabel(config.padL) + '</span> + <span class="tag">' + keyLabel(config.padR) + '</span>, then release to start';
     updateSpaceBtn();
+    hintEl.innerHTML = 'press SPACE to stop';
   }
 
   function updateInspection(){
