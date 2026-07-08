@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0c0c0e">
 <title>cube timer ni dal</title>
-<link rel="icon" type="image/x-icon" href="/images/favicon.ico">
+<link rel="icon" type="image/png" href="favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
@@ -30,7 +30,10 @@
     <div class="hint" id="hint">press <span class="tag">SPACE</span> to start inspection</div>
 
     <div class="touch-controls" id="touchControls">
-      <div class="pads-row">
+      <div class="pads-toggle-row">
+        <button class="toggle-link" id="padsToggleLink">hide pads</button>
+      </div>
+      <div class="pads-row" id="padsRow">
         <button class="pad-btn" id="padLBtn" type="button">
           <span class="pad-btn-label">PAD L</span>
           <span class="pad-btn-key" id="padLBtnKey">Shift L</span>
@@ -48,9 +51,15 @@
         <button class="toggle-link" id="toggleLink">hide</button>
       </div>
       <div class="panel-body" id="panelBody">
+        <div class="session-tabs" id="sessionTabs">
+          <div class="session-tabs-scroll" id="sessionTabsScroll"></div>
+          <button class="session-add-btn" id="sessionAddBtn" title="New session" aria-label="New session">+</button>
+        </div>
         <div class="avg-line" id="avgLine">AVERAGE OF 5: –</div>
-        <div id="solveRows">
-          <div class="solve-row"><span class="idx">no solves yet</span></div>
+        <div class="solve-rows-scroll" id="solveRowsScroll">
+          <div id="solveRows">
+            <div class="solve-row"><span class="idx">no solves yet</span></div>
+          </div>
         </div>
         <div class="extra-stats">
           <span>best: <b id="statBest">–</b></span>

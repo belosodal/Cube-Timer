@@ -26,9 +26,33 @@
   var solveRAF = null;
   var pendingPenalty = null; // null | "+2" | "DNF"
 
-  var solves = []; // {id, ms, penalty:null|"+2", dnf:bool, scramble:string}
-  var solveIdCounter = 0;
   var panelCollapsed = false;
+  var padsHidden = false;
+
+  // ---------- sessions ----------
+  // Each session keeps its own solve log + id counter, so switching
+  // sessions never mixes solves together. `solves` / `solveIdCounter`
+  // below always point at the *active* session's data via helpers.
+  var sessions = []; // {id, name, solves:[...], solveIdCounter}
+  var sessionIdCounter = 0;
+  var activeSessionId = null;
+  var solves = []; // always a reference to the active session's solves array
+
+  function nextSolveId(){
+    return ++(getActiveSession().solveIdCounter);
+  }
+
+  function getActiveSession(){
+    for (var i=0;i<sessions.length;i++){
+      if (sessions[i].id === activeSessionId) return sessions[i];
+    }
+    return sessions[0];
+  }
+  function createSession(name){
+    var s = { id: ++sessionIdCounter, name: name || ("Session " + sessions.length), solves: [], solveIdCounter: 0 };
+    sessions.push(s);
+    return s;
+  }
 
   // ---------- persistence (localStorage) ----------
   // Keeps the session (solves, current scramble, keybinds, inspection time,
@@ -36,15 +60,18 @@
   // single read/write covers everything; falls back gracefully if
   // localStorage is unavailable (e.g. private browsing) or the saved data
   // is corrupt/from an older version.
-  var STORAGE_KEY = "cubeTimerNiDal.v1";
+  var STORAGE_KEY = "cubeTimerNiDal.v2";
+  var STORAGE_KEY_LEGACY = "cubeTimerNiDal.v1"; // old single-session format
 
   function saveState(){
     try{
       var payload = {
         config: config,
-        solves: solves,
-        solveIdCounter: solveIdCounter,
+        sessions: sessions,
+        sessionIdCounter: sessionIdCounter,
+        activeSessionId: activeSessionId,
         panelCollapsed: panelCollapsed,
+        padsHidden: padsHidden,
         scramble: scrambleTextEl ? scrambleTextEl.textContent : null
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -60,24 +87,72 @@
     }catch(err){
       return null;
     }
+    if (!raw){
+      return loadLegacyState();
+    }
+    try{
+      var data = JSON.parse(raw);
+      applyConfig(data.config);
+      if (Array.isArray(data.sessions) && data.sessions.length){
+        sessions = data.sessions.map(function(s){
+          return {
+            id: s.id,
+            name: s.name || "Session",
+            solves: Array.isArray(s.solves) ? s.solves : [],
+            solveIdCounter: typeof s.solveIdCounter === "number" ? s.solveIdCounter : 0
+          };
+        });
+        sessionIdCounter = sessions.reduce(function(max, s){
+          return s.id > max ? s.id : max;
+        }, data.sessionIdCounter || 0);
+        activeSessionId = sessions.some(function(s){ return s.id === data.activeSessionId; })
+          ? data.activeSessionId
+          : sessions[0].id;
+      } else {
+        var s0 = createSession("Session 1");
+        activeSessionId = s0.id;
+      }
+      solves = getActiveSession().solves;
+      panelCollapsed = !!data.panelCollapsed;
+      padsHidden = !!data.padsHidden;
+      return data;
+    }catch(err){
+      return null;
+    }
+  }
+
+  // migrate the older single-session save format into one session
+  function loadLegacyState(){
+    var raw;
+    try{
+      raw = localStorage.getItem(STORAGE_KEY_LEGACY);
+    }catch(err){
+      return null;
+    }
     if (!raw) return null;
     try{
       var data = JSON.parse(raw);
-      if (data.config && typeof data.config === "object"){
-        if (data.config.padL) config.padL = data.config.padL;
-        if (data.config.padR) config.padR = data.config.padR;
-        if (typeof data.config.inspectionSeconds === "number"){
-          config.inspectionSeconds = data.config.inspectionSeconds;
-        }
-      }
-      if (Array.isArray(data.solves)) solves = data.solves;
-      solveIdCounter = solves.reduce(function(max, s){
-        return typeof s.id === "number" && s.id > max ? s.id : max;
+      applyConfig(data.config);
+      var legacySolves = Array.isArray(data.solves) ? data.solves : [];
+      var s = createSession("Session 1");
+      s.solves = legacySolves;
+      s.solveIdCounter = legacySolves.reduce(function(max, sv){
+        return typeof sv.id === "number" && sv.id > max ? sv.id : max;
       }, data.solveIdCounter || 0);
+      activeSessionId = s.id;
+      solves = s.solves;
       panelCollapsed = !!data.panelCollapsed;
       return data;
     }catch(err){
       return null;
+    }
+  }
+
+  function applyConfig(c){
+    if (c && typeof c === "object"){
+      if (c.padL) config.padL = c.padL;
+      if (c.padR) config.padR = c.padR;
+      if (typeof c.inspectionSeconds === "number") config.inspectionSeconds = c.inspectionSeconds;
     }
   }
 
@@ -114,6 +189,11 @@
   var padLBtnKey = document.getElementById("padLBtnKey");
   var padRBtnKey = document.getElementById("padRBtnKey");
   var spaceBtn = document.getElementById("spaceBtn");
+  var padsRow = document.getElementById("padsRow");
+  var padsToggleLink = document.getElementById("padsToggleLink");
+
+  var sessionTabsScroll = document.getElementById("sessionTabsScroll");
+  var sessionAddBtn = document.getElementById("sessionAddBtn");
 
   // ---------- key label helper ----------
   function keyLabel(code){
@@ -252,7 +332,7 @@
       displayEl.textContent = "DNF";
       pendingPenalty = "DNF";
     } else {
-      solves.push({id: ++solveIdCounter, ms:0, penalty:null, dnf:true, scramble: scrambleTextEl.textContent});
+      solves.push({id: nextSolveId(), ms:0, penalty:null, dnf:true, scramble: scrambleTextEl.textContent});
       renderSolves();
       setDisplayClass("state-dnf");
       newScramble();
@@ -309,7 +389,7 @@
     var dnf = !!window.__forceDnf;
     var penalty = window.__penalty || null;
     var finalMs = elapsed + (penalty === "+2" ? 2000 : 0);
-    solves.push({id: ++solveIdCounter, ms: dnf ? 0 : finalMs, penalty: penalty, dnf: dnf, scramble: scrambleTextEl.textContent});
+    solves.push({id: nextSolveId(), ms: dnf ? 0 : finalMs, penalty: penalty, dnf: dnf, scramble: scrambleTextEl.textContent});
     renderSolves();
     setDisplayClass(dnf ? "state-dnf" : "state-idle");
     var resultText = dnf ? "DNF" : formatMs(finalMs) + (penalty ? " (+2)" : "");
@@ -429,13 +509,14 @@
     solveRows.innerHTML = "";
     if (!solves.length){
       solveRows.innerHTML = '<div class="solve-row no-click"><span class="idx">no solves yet</span></div>';
+      renderSessionTabs();
       saveState();
       return;
     }
-    var lastFive = solves.slice(-5);
-    var startIdx = solves.length - lastFive.length;
-    lastFive.forEach(function(s, i){
-      var solveNumber = startIdx + i + 1;
+    // show every solve in this session — the wrapping .solve-rows-scroll
+    // container caps the visible height to ~5 rows and scrolls beyond that
+    solves.forEach(function(s, i){
+      var solveNumber = i + 1;
       var row = document.createElement("div");
       row.className = "solve-row" + (s.dnf ? " dnf" : "");
       row.title = "click to view scramble";
@@ -468,6 +549,7 @@
       row.appendChild(del);
       solveRows.appendChild(row);
     });
+    renderSessionTabs();
     saveState();
   }
 
@@ -495,6 +577,92 @@
     solves.splice(i, 1);
     renderSolves();
   }
+
+  // ---------- session tabs ----------
+  function renderSessionTabs(){
+    sessionTabsScroll.innerHTML = "";
+    sessions.forEach(function(s){
+      var tab = document.createElement("button");
+      tab.type = "button";
+      tab.className = "session-tab" + (s.id === activeSessionId ? " active" : "");
+      tab.title = s.name;
+
+      var label = document.createElement("span");
+      label.textContent = s.name + " (" + s.solves.length + ")";
+      tab.appendChild(label);
+
+      if (sessions.length > 1){
+        var del = document.createElement("span");
+        del.className = "session-del";
+        del.textContent = "\u00D7";
+        del.title = "delete session";
+        del.addEventListener("click", function(e){
+          e.stopPropagation();
+          deleteSession(s.id);
+        });
+        tab.appendChild(del);
+      }
+
+      tab.addEventListener("click", function(){ switchSession(s.id); });
+      tab.addEventListener("dblclick", function(){ renameSession(s.id); });
+      sessionTabsScroll.appendChild(tab);
+    });
+  }
+
+  function switchSession(id){
+    if (id === activeSessionId) return;
+    // don't yank the active session out from under a running timer
+    if (state !== STATE.IDLE) return;
+    activeSessionId = id;
+    solves = getActiveSession().solves;
+    renderSolves();
+  }
+
+  function addSession(){
+    var s = createSession("Session " + (sessions.length + 1));
+    activeSessionId = s.id;
+    solves = s.solves;
+    renderSolves();
+    // scroll the new tab into view
+    requestAnimationFrame(function(){
+      sessionTabsScroll.scrollLeft = sessionTabsScroll.scrollWidth;
+    });
+  }
+
+  function deleteSession(id){
+    if (sessions.length <= 1) return;
+    var i = sessions.findIndex(function(s){ return s.id === id; });
+    if (i === -1) return;
+    sessions.splice(i, 1);
+    if (activeSessionId === id){
+      var next = sessions[Math.max(0, i - 1)];
+      activeSessionId = next.id;
+      solves = next.solves;
+    }
+    renderSolves();
+  }
+
+  function renameSession(id){
+    var s = sessions.find(function(s){ return s.id === id; });
+    if (!s) return;
+    var name = window.prompt("Session name", s.name);
+    if (name && name.trim()){
+      s.name = name.trim().slice(0, 24);
+      renderSessionTabs();
+      saveState();
+    }
+  }
+
+  sessionAddBtn.addEventListener("click", addSession);
+
+  // ---------- pads visibility ----------
+  function setPadsHidden(hidden){
+    padsHidden = hidden;
+    padsRow.classList.toggle("hidden", hidden);
+    padsToggleLink.textContent = hidden ? "show pads" : "hide pads";
+    saveState();
+  }
+  padsToggleLink.addEventListener("click", function(){ setPadsHidden(!padsHidden); });
 
   // ---------- panel collapse ----------
   function setPanelCollapsed(collapsed){
@@ -554,7 +722,7 @@
   // display back to 0.00 (previously it only cleared the stats panel, leaving
   // the last solve's time still showing on the main display).
   clearBtn.addEventListener("click", function(){
-    solves = [];
+    solves.length = 0;
     renderSolves();
     if (state === STATE.IDLE){
       setDisplayClass("state-idle");
@@ -565,6 +733,12 @@
 
   // ---------- init ----------
   var saved = loadState();
+
+  if (!sessions.length){
+    var firstSession = createSession("Session 1");
+    activeSessionId = firstSession.id;
+  }
+  solves = getActiveSession().solves;
 
   // reflect any restored keybinds/inspection-time in the settings modal
   rebindL.textContent = keyLabel(config.padL);
@@ -585,6 +759,10 @@
   if (saved && saved.panelCollapsed){
     setPanelCollapsed(true);
   }
+  if (padsHidden){
+    setPadsHidden(true);
+  }
+  renderSessionTabs();
 
   goIdle();
 })();
