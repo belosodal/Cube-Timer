@@ -313,7 +313,7 @@
     setDisplayClass(dnf ? "state-dnf" : "state-idle");
     var resultText = dnf ? "DNF" : formatMs(finalMs) + (penalty ? " (+2)" : "");
     newScramble();
-    goIdle('</span> — press SPACE to start inspection');
+    goIdle('</span> press SPACE to start inspection');
   }
 
   // ---------- space handling ----------
