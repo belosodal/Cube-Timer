@@ -21,60 +21,9 @@
   var solveRAF = null;
   var pendingPenalty = null; // null | "+2" | "DNF"
 
-  var solves = []; // {id, ms, penalty:null|"+2", dnf:bool, scramble:string}
+  var solves = []; // {id, ms, penalty:null|"+2", dnf:bool}
   var solveIdCounter = 0;
   var panelCollapsed = false;
-
-  // ---------- persistence (localStorage) ----------
-  // Keeps the session (solves, current scramble, keybinds, inspection time,
-  // panel state) across tab closes/reloads. Saved as one JSON blob so a
-  // single read/write covers everything; falls back gracefully if
-  // localStorage is unavailable (e.g. private browsing) or the saved data
-  // is corrupt/from an older version.
-  var STORAGE_KEY = "cubeTimerNiDal.v1";
-
-  function saveState(){
-    try{
-      var payload = {
-        config: config,
-        solves: solves,
-        solveIdCounter: solveIdCounter,
-        panelCollapsed: panelCollapsed,
-        scramble: scrambleTextEl ? scrambleTextEl.textContent : null
-      };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    }catch(err){
-      // storage unavailable or full — fail silently, timer still works
-    }
-  }
-
-  function loadState(){
-    var raw;
-    try{
-      raw = localStorage.getItem(STORAGE_KEY);
-    }catch(err){
-      return null;
-    }
-    if (!raw) return null;
-    try{
-      var data = JSON.parse(raw);
-      if (data.config && typeof data.config === "object"){
-        if (data.config.padL) config.padL = data.config.padL;
-        if (data.config.padR) config.padR = data.config.padR;
-        if (typeof data.config.inspectionSeconds === "number"){
-          config.inspectionSeconds = data.config.inspectionSeconds;
-        }
-      }
-      if (Array.isArray(data.solves)) solves = data.solves;
-      solveIdCounter = solves.reduce(function(max, s){
-        return typeof s.id === "number" && s.id > max ? s.id : max;
-      }, data.solveIdCounter || 0);
-      panelCollapsed = !!data.panelCollapsed;
-      return data;
-    }catch(err){
-      return null;
-    }
-  }
 
   // ---------- dom ----------
   var displayEl = document.getElementById("display");
@@ -98,11 +47,6 @@
   var inspVal = document.getElementById("inspVal");
   var inspMinus = document.getElementById("inspMinus");
   var inspPlus = document.getElementById("inspPlus");
-
-  var scrambleModalBackdrop = document.getElementById("scrambleModalBackdrop");
-  var scrambleModalTitle = document.getElementById("scrambleModalTitle");
-  var scrambleModalText = document.getElementById("scrambleModalText");
-  var scrambleModalClose = document.getElementById("scrambleModalClose");
 
   // ---------- key label helper ----------
   function keyLabel(code){
@@ -152,7 +96,6 @@
 
   function newScramble(){
     scrambleTextEl.textContent = generateScramble();
-    saveState();
   }
 
   // ---------- formatting ----------
@@ -218,7 +161,7 @@
       displayEl.textContent = "DNF";
       pendingPenalty = "DNF";
     } else {
-      solves.push({id: ++solveIdCounter, ms:0, penalty:null, dnf:true, scramble: scrambleTextEl.textContent});
+      solves.push({id: ++solveIdCounter, ms:0, penalty:null, dnf:true});
       renderSolves();
       setDisplayClass("state-dnf");
       newScramble();
@@ -272,7 +215,7 @@
     var dnf = !!window.__forceDnf;
     var penalty = window.__penalty || null;
     var finalMs = elapsed + (penalty === "+2" ? 2000 : 0);
-    solves.push({id: ++solveIdCounter, ms: dnf ? 0 : finalMs, penalty: penalty, dnf: dnf, scramble: scrambleTextEl.textContent});
+    solves.push({id: ++solveIdCounter, ms: dnf ? 0 : finalMs, penalty: penalty, dnf: dnf});
     renderSolves();
     setDisplayClass(dnf ? "state-dnf" : "state-idle");
     var resultText = dnf ? "DNF" : formatMs(finalMs) + (penalty ? " (+2)" : "");
@@ -356,21 +299,18 @@
 
     solveRows.innerHTML = "";
     if (!solves.length){
-      solveRows.innerHTML = '<div class="solve-row no-click"><span class="idx">no solves yet</span></div>';
-      saveState();
+      solveRows.innerHTML = '<div class="solve-row"><span class="idx">no solves yet</span></div>';
       return;
     }
     var lastFive = solves.slice(-5);
     var startIdx = solves.length - lastFive.length;
     lastFive.forEach(function(s, i){
-      var solveNumber = startIdx + i + 1;
       var row = document.createElement("div");
       row.className = "solve-row" + (s.dnf ? " dnf" : "");
-      row.title = "click to view scramble";
 
       var idx = document.createElement("span");
       idx.className = "idx";
-      idx.textContent = "SOLVE " + solveNumber + ":";
+      idx.textContent = "SOLVE " + (startIdx + i + 1) + ":";
 
       var val = document.createElement("span");
       val.className = "solve-val";
@@ -381,14 +321,10 @@
       del.type = "button";
       del.textContent = "\u00D7";
       del.title = "delete this solve";
-      del.setAttribute("aria-label", "delete solve " + solveNumber);
+      del.setAttribute("aria-label", "delete solve " + (startIdx + i + 1));
       del.addEventListener("click", function(e){
         e.stopPropagation();
         deleteSolveById(s.id);
-      });
-
-      row.addEventListener("click", function(){
-        openScrambleModal(s, solveNumber);
       });
 
       row.appendChild(idx);
@@ -396,22 +332,7 @@
       row.appendChild(del);
       solveRows.appendChild(row);
     });
-    saveState();
   }
-
-  // ---------- scramble-view modal ----------
-  function openScrambleModal(solve, solveNumber){
-    scrambleModalTitle.textContent = "SOLVE #" + solveNumber + (solve.dnf ? " — DNF" : "");
-    scrambleModalText.textContent = solve.scramble || "scramble not recorded for this solve";
-    scrambleModalBackdrop.classList.add("open");
-  }
-  function closeScrambleModal(){
-    scrambleModalBackdrop.classList.remove("open");
-  }
-  scrambleModalClose.addEventListener("click", closeScrambleModal);
-  scrambleModalBackdrop.addEventListener("click", function(e){
-    if (e.target === scrambleModalBackdrop) closeScrambleModal();
-  });
 
   // ---------- delete a single solve ----------
   // Removes exactly one solve by its stable id (not by array position), so
@@ -429,7 +350,6 @@
     panelCollapsed = collapsed;
     panelEl.classList.toggle("collapsed", collapsed);
     toggleLink.textContent = collapsed ? "show" : "hide";
-    saveState();
   }
   toggleLink.addEventListener("click", function(){ setPanelCollapsed(!panelCollapsed); });
 
@@ -453,7 +373,6 @@
     rebindL.classList.remove("listening");
     rebindR.classList.remove("listening");
     rebindTarget = null;
-    saveState();
   }
   function cancelRebind(){
     rebindL.textContent = keyLabel(config.padL);
@@ -468,12 +387,10 @@
   inspMinus.addEventListener("click", function(){
     config.inspectionSeconds = Math.max(3, config.inspectionSeconds-1);
     inspVal.textContent = config.inspectionSeconds+"s";
-    saveState();
   });
   inspPlus.addEventListener("click", function(){
     config.inspectionSeconds = Math.min(60, config.inspectionSeconds+1);
     inspVal.textContent = config.inspectionSeconds+"s";
-    saveState();
   });
 
   // ---------- clear session ----------
@@ -491,26 +408,7 @@
   });
 
   // ---------- init ----------
-  var saved = loadState();
-
-  // reflect any restored keybinds/inspection-time in the settings modal
-  rebindL.textContent = keyLabel(config.padL);
-  rebindR.textContent = keyLabel(config.padR);
-  inspVal.textContent = config.inspectionSeconds + "s";
-
   renderSolves();
-
-  // reuse the saved scramble (so it doesn't change on a plain reload);
-  // only generate a fresh one if nothing was saved yet
-  if (saved && typeof saved.scramble === "string" && saved.scramble){
-    scrambleTextEl.textContent = saved.scramble;
-  } else {
-    newScramble();
-  }
-
-  if (saved && saved.panelCollapsed){
-    setPanelCollapsed(true);
-  }
-
+  newScramble();
   goIdle();
 })();
