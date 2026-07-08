@@ -265,7 +265,7 @@
     if (heldKeys.has(config.padL) && heldKeys.has(config.padR)){
       state = STATE.ARMED;
       setDisplayClass("state-armed");
-      hintEl.innerHTML = 'release to <span class="tag">start</span>';
+      // hintEl.innerHTML = 'release to <span class="tag">start</span>';
       updateSpaceBtn();
     }
   }
