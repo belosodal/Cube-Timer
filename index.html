@@ -2,9 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0c0c0e">
 <title>cube timer ni dal</title>
-<link rel="icon" type="image/png" href="/images/favicon.png">
+<link rel="icon" type="image/x-icon" href="/images/favicon.ico">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
@@ -27,6 +28,20 @@
     </div>
     <div class="display state-idle" id="display">0.00</div>
     <div class="hint" id="hint">press <span class="tag">SPACE</span> to start inspection</div>
+
+    <div class="touch-controls" id="touchControls">
+      <div class="pads-row">
+        <button class="pad-btn" id="padLBtn" type="button">
+          <span class="pad-btn-label">PAD L</span>
+          <span class="pad-btn-key" id="padLBtnKey">Shift L</span>
+        </button>
+        <button class="pad-btn" id="padRBtn" type="button">
+          <span class="pad-btn-label">PAD R</span>
+          <span class="pad-btn-key" id="padRBtnKey">Shift R</span>
+        </button>
+      </div>
+      <button class="space-btn" id="spaceBtn" type="button">TAP TO START</button>
+    </div>
 
     <div class="panel" id="panel">
       <div class="panel-toggle-row">
