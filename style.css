@@ -434,6 +434,14 @@ button{font-family:inherit;}
 }
 @media (prefers-reduced-motion: reduce){ *{transition:none !important;} }
 
+/* ---- focus mode: while inspection/solve is running, hide everything
+   except the timer itself, regardless of what was open/collapsed before ---- */
+body.focus-mode .scramble-box,
+body.focus-mode .panel,
+body.focus-mode .cube-panel{
+  display:none !important;
+}
+
 /* ---- cube view panel (lower left corner, stays inline like the stats panel, added) ---- */
 .cube-panel{
   position:fixed;

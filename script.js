@@ -320,12 +320,25 @@
     }
   }
 
+  // ---------- focus mode ----------
+  // While inspection/solving is in progress, hide the scramble box and the
+  // stats/session panel (and the cube-view panel) so only the timer shows.
+  // Whatever was open/collapsed before gets left untouched underneath —
+  // we're just hiding it with CSS — so it pops right back once goIdle runs.
+  function enterFocusMode(){
+    document.body.classList.add("focus-mode");
+  }
+  function exitFocusMode(){
+    document.body.classList.remove("focus-mode");
+  }
+
   // ---------- reset to idle ----------
   function goIdle(msg){
     state = STATE.IDLE;
     clearInterval(inspectionInterval);
     cancelAnimationFrame(solveRAF);
     pendingPenalty = null;
+    exitFocusMode();
     setDisplayClass("state-idle");
     if (solves.length){
       var last = solves[solves.length-1];
@@ -342,6 +355,7 @@
   function startInspection(){
     if (state !== STATE.IDLE) return;
     state = STATE.INSPECTION;
+    enterFocusMode();
     inspectionStart = performance.now();
     setDisplayClass("state-inspection");
     updateInspection();
