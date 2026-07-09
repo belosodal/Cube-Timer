@@ -830,4 +830,154 @@
   renderSessionTabs();
 
   goIdle();
+  // ---------- cube net preview (renders the scramble as an unfolded cube, added feature) ----------
+  var CUBE_COLORS = { U:"#f5f5f0", D:"#f7d417", F:"#3aae3a", B:"#2456e5", L:"#f0891c", R:"#e0342a" };
+  var CUBE_FACE_ORDER = ["U","R","F","D","L","B"];
+  var CUBE_FACE_NORMAL = { U:[0,1,0], D:[0,-1,0], F:[0,0,1], B:[0,0,-1], R:[1,0,0], L:[-1,0,0] };
+
+  function cubeFacePoint(face, row, col){
+    switch(face){
+      case "F": return {x:col-1, y:1-row, z:1};
+      case "B": return {x:1-col, y:1-row, z:-1};
+      case "U": return {x:col-1, y:1, z:row-1};
+      case "D": return {x:col-1, y:-1, z:1-row};
+      case "R": return {x:1, y:1-row, z:1-col};
+      case "L": return {x:-1, y:1-row, z:col-1};
+    }
+  }
+  function cubeFaceRowCol(face, p){
+    switch(face){
+      case "F": return {row:1-p.y, col:p.x+1};
+      case "B": return {row:1-p.y, col:1-p.x};
+      case "U": return {row:p.z+1, col:p.x+1};
+      case "D": return {row:1-p.z, col:p.x+1};
+      case "R": return {row:1-p.y, col:1-p.z};
+      case "L": return {row:1-p.y, col:p.z+1};
+    }
+  }
+  function cubeNormalToFace(n){
+    for (var i=0;i<CUBE_FACE_ORDER.length;i++){
+      var f = CUBE_FACE_ORDER[i], fn = CUBE_FACE_NORMAL[f];
+      if (fn[0]===n.x && fn[1]===n.y && fn[2]===n.z) return f;
+    }
+    return null;
+  }
+  var CUBE_MOVE_TRANSFORM = {
+    U:function(p){ return {x:-p.z, y:p.y, z:p.x}; },
+    D:function(p){ return {x:p.z, y:p.y, z:-p.x}; },
+    F:function(p){ return {x:p.y, y:-p.x, z:p.z}; },
+    B:function(p){ return {x:-p.y, y:p.x, z:p.z}; },
+    R:function(p){ return {x:p.x, y:p.z, z:-p.y}; },
+    L:function(p){ return {x:p.x, y:-p.z, z:p.y}; }
+  };
+  var CUBE_MOVE_AXIS_TEST = {
+    U:function(p){ return p.y===1; },
+    D:function(p){ return p.y===-1; },
+    F:function(p){ return p.z===1; },
+    B:function(p){ return p.z===-1; },
+    R:function(p){ return p.x===1; },
+    L:function(p){ return p.x===-1; }
+  };
+
+  function cubeTurnOnce(grids, face){
+    var newGrids = {};
+    CUBE_FACE_ORDER.forEach(function(f){ newGrids[f] = grids[f].slice(); });
+    CUBE_FACE_ORDER.forEach(function(f){
+      for (var row=0; row<3; row++){
+        for (var col=0; col<3; col++){
+          var p = cubeFacePoint(f, row, col);
+          if (!CUBE_MOVE_AXIS_TEST[face](p)) continue;
+          var n = CUBE_FACE_NORMAL[f];
+          var newNormal = CUBE_MOVE_TRANSFORM[face]({x:n[0],y:n[1],z:n[2]});
+          var newFace = cubeNormalToFace(newNormal);
+          var newP = CUBE_MOVE_TRANSFORM[face](p);
+          var rc = cubeFaceRowCol(newFace, newP);
+          newGrids[newFace][rc.row*3+rc.col] = grids[f][row*3+col];
+        }
+      }
+    });
+    return newGrids;
+  }
+
+  function cubeApplyMove(grids, moveStr){
+    var face = moveStr.charAt(0);
+    var mod = moveStr.slice(1);
+    var times = mod === "2" ? 2 : (mod === "'" ? 3 : 1);
+    var g = grids;
+    for (var i=0;i<times;i++){ g = cubeTurnOnce(g, face); }
+    return g;
+  }
+
+  function cubeSolvedGrids(){
+    var g = {};
+    CUBE_FACE_ORDER.forEach(function(f){ g[f] = new Array(9).fill(CUBE_COLORS[f]); });
+    return g;
+  }
+
+  function cubeGridsFromScramble(scrambleStr){
+    var grids = cubeSolvedGrids();
+    var moves = (scrambleStr || "").trim().split(/\s+/).filter(Boolean);
+    moves.forEach(function(m){
+      if (!/^[UDLRFB]['2]?$/.test(m)) return;
+      grids = cubeApplyMove(grids, m);
+    });
+    return grids;
+  }
+
+  function cubeSvgFaceGroup(grid, x, y, cell, gap){
+    var out = "";
+    for (var row=0; row<3; row++){
+      for (var col=0; col<3; col++){
+        var cx = x + col*(cell+gap);
+        var cy = y + row*(cell+gap);
+        var color = grid[row*3+col];
+        out += '<rect x="'+cx+'" y="'+cy+'" width="'+cell+'" height="'+cell+
+               '" rx="2" fill="'+color+'" stroke="#0c0c0e" stroke-width="1.5"></rect>';
+      }
+    }
+    return out;
+  }
+
+  function cubeBuildNetSVG(grids){
+    var cell = 26, gap = 3;
+    var faceW = cell*3 + gap*2;
+    var faceGap = 10;
+    var lX = 0, fX = faceW+faceGap, rX = 2*(faceW+faceGap), bX = 3*(faceW+faceGap);
+    var uY = 0, midY = faceW+faceGap, dY = 2*(faceW+faceGap);
+    var totalW = bX + faceW;
+    var totalH = dY + faceW;
+    var svg = '<svg viewBox="0 0 '+totalW+' '+totalH+'" xmlns="http://www.w3.org/2000/svg" width="100%" height="auto">';
+    svg += cubeSvgFaceGroup(grids.U, fX, uY, cell, gap);
+    svg += cubeSvgFaceGroup(grids.L, lX, midY, cell, gap);
+    svg += cubeSvgFaceGroup(grids.F, fX, midY, cell, gap);
+    svg += cubeSvgFaceGroup(grids.R, rX, midY, cell, gap);
+    svg += cubeSvgFaceGroup(grids.B, bX, midY, cell, gap);
+    svg += cubeSvgFaceGroup(grids.D, fX, dY, cell, gap);
+    svg += '</svg>';
+    return svg;
+  }
+
+  var cubeViewBtn = document.getElementById("cubeViewBtn");
+  var cubeNetModalBackdrop = document.getElementById("cubeNetModalBackdrop");
+  var cubeNetWrap = document.getElementById("cubeNetWrap");
+  var cubeNetModalClose = document.getElementById("cubeNetModalClose");
+
+  if (cubeViewBtn && cubeNetModalBackdrop && cubeNetWrap){
+    cubeViewBtn.addEventListener("click", function(){
+      var scrambleStr = scrambleTextEl ? scrambleTextEl.textContent : "";
+      var grids = cubeGridsFromScramble(scrambleStr);
+      cubeNetWrap.innerHTML = cubeBuildNetSVG(grids);
+      cubeNetModalBackdrop.classList.add("open");
+    });
+  }
+  if (cubeNetModalClose && cubeNetModalBackdrop){
+    cubeNetModalClose.addEventListener("click", function(){
+      cubeNetModalBackdrop.classList.remove("open");
+    });
+  }
+  if (cubeNetModalBackdrop){
+    cubeNetModalBackdrop.addEventListener("click", function(e){
+      if (e.target === cubeNetModalBackdrop) cubeNetModalBackdrop.classList.remove("open");
+    });
+  }
 })();

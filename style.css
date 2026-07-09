@@ -433,3 +433,51 @@ button{font-family:inherit;}
   .panel{max-height:34vh;overflow-y:auto;}
 }
 @media (prefers-reduced-motion: reduce){ *{transition:none !important;} }
+
+/* ---- floating cube-view button (lower left corner, added) ---- */
+.cube-view-fab{
+  position:fixed;
+  left:22px;
+  bottom:22px;
+  z-index:40;
+  background:#141416;
+  border:1px solid #2c2c30;
+  color:var(--text-dim);
+  font-size:11.5px;
+  font-weight:700;
+  letter-spacing:.04em;
+  padding:10px 14px;
+  border-radius:12px;
+  cursor:pointer;
+  box-shadow:0 10px 30px -10px rgba(0,0,0,.6);
+  transition:background .1s, border-color .1s, color .1s;
+}
+.cube-view-fab:hover{color:var(--green);border-color:var(--green);}
+@media (max-width:768px){
+  .cube-view-fab{left:16px;bottom:16px;padding:10px 12px;font-size:11px;}
+}
+
+/* ---- cube net preview modal (added) ---- */
+.modal-wide{
+  width:auto;
+  max-width:96vw;
+}
+.cube-net-wrap{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  background:#0e2430;
+  border:1px solid #2c2c30;
+  border-radius:12px;
+  padding:18px;
+  margin-bottom:16px;
+  overflow-x:auto;
+}
+.cube-net-wrap svg{
+  display:block;
+  max-width:100%;
+  height:auto;
+}
+@media (max-width:768px){
+  .modal-wide{width:94vw;}
+}
