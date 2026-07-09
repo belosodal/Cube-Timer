@@ -958,26 +958,28 @@
   }
 
   var cubeViewBtn = document.getElementById("cubeViewBtn");
-  var cubeNetModalBackdrop = document.getElementById("cubeNetModalBackdrop");
+  var cubePanel = document.getElementById("cubePanel");
   var cubeNetWrap = document.getElementById("cubeNetWrap");
-  var cubeNetModalClose = document.getElementById("cubeNetModalClose");
 
-  if (cubeViewBtn && cubeNetModalBackdrop && cubeNetWrap){
+  function renderCubeNet(){
+    if (!cubeNetWrap) return;
+    var scrambleStr = scrambleTextEl ? scrambleTextEl.textContent : "";
+    var grids = cubeGridsFromScramble(scrambleStr);
+    cubeNetWrap.innerHTML = cubeBuildNetSVG(grids);
+  }
+
+  if (cubeViewBtn && cubePanel && cubeNetWrap){
     cubeViewBtn.addEventListener("click", function(){
-      var scrambleStr = scrambleTextEl ? scrambleTextEl.textContent : "";
-      var grids = cubeGridsFromScramble(scrambleStr);
-      cubeNetWrap.innerHTML = cubeBuildNetSVG(grids);
-      cubeNetModalBackdrop.classList.add("open");
+      var opening = cubePanel.classList.contains("collapsed");
+      cubePanel.classList.toggle("collapsed");
+      cubeViewBtn.textContent = opening ? "hide" : "cube view";
+      if (opening) renderCubeNet();
     });
-  }
-  if (cubeNetModalClose && cubeNetModalBackdrop){
-    cubeNetModalClose.addEventListener("click", function(){
-      cubeNetModalBackdrop.classList.remove("open");
-    });
-  }
-  if (cubeNetModalBackdrop){
-    cubeNetModalBackdrop.addEventListener("click", function(e){
-      if (e.target === cubeNetModalBackdrop) cubeNetModalBackdrop.classList.remove("open");
-    });
+
+    if (window.MutationObserver && scrambleTextEl){
+      new MutationObserver(function(){
+        if (!cubePanel.classList.contains("collapsed")) renderCubeNet();
+      }).observe(scrambleTextEl, {childList:true, characterData:true, subtree:true});
+    }
   }
 })();
